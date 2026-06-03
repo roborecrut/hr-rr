@@ -1,9 +1,14 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * Тонкий адаптер поверх react-router-dom, сохраняющий прежний API useRouter()
+ * (path, query, navigate(to, queryParams?)) — чтобы существующие страницы
+ * не пришлось переписывать.
  */
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 interface RouterContextType {
   path: string;
@@ -11,64 +16,31 @@ interface RouterContextType {
   navigate: (toPath: string, queryParams?: Record<string, string>) => void;
 }
 
-const RouterContext = createContext<RouterContextType | undefined>(undefined);
-
 export function RouterProvider({ children }: { children: React.ReactNode }) {
-  const [path, setPath] = useState<string>(() => {
-    if (typeof window === "undefined") return "/main";
-    const initialPath = window.location.pathname;
-    return initialPath === "/" ? "/main" : initialPath;
+  // BrowserRouter уже стоит в main.tsx — здесь обёртка не нужна.
+  return <>{children}</>;
+}
+
+export function useRouter(): RouterContextType {
+  const location = useLocation();
+  const navigateRR = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const query: Record<string, string> = {};
+  searchParams.forEach((value, key) => {
+    query[key] = value;
   });
-
-  const [query, setQuery] = useState<Record<string, string>>(() => {
-    if (typeof window === "undefined") return {};
-    return parseQueryParams(window.location.search);
-  });
-
-
-  function parseQueryParams(searchStr: string): Record<string, string> {
-    const params: Record<string, string> = {};
-    const searchParams = new URLSearchParams(searchStr);
-    searchParams.forEach((value, key) => {
-      params[key] = value;
-    });
-    return params;
-  }
 
   const navigate = (toPath: string, queryParams?: Record<string, string>) => {
     const serializedQuery = queryParams
       ? "?" + new URLSearchParams(queryParams).toString()
       : "";
-    const fullUrl = toPath + serializedQuery;
-
-    window.history.pushState(null, "", fullUrl);
-    setPath(toPath);
-    setQuery(queryParams || {});
+    navigateRR(toPath + serializedQuery);
   };
 
-  useEffect(() => {
-    const handlePopState = () => {
-      setPath(window.location.pathname === "/" ? "/main" : window.location.pathname);
-      setQuery(parseQueryParams(window.location.search));
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, []);
-
-  return (
-    <RouterContext.Provider value={{ path, query, navigate }}>
-      {children}
-    </RouterContext.Provider>
-  );
-}
-
-export function useRouter() {
-  const context = useContext(RouterContext);
-  if (!context) {
-    throw new Error("useRouter must be used within a RouterProvider");
-  }
-  return context;
+  return {
+    path: location.pathname,
+    query,
+    navigate,
+  };
 }
