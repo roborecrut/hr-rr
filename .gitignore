@@ -8,8 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+build
 dist
 dist-ssr
+coverage
 .output
 .vinxi
 .tanstack/**
@@ -30,3 +32,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.env*
+!.env.example
+
