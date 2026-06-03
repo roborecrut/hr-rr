@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HomePage } from "@/pages/HomePage";
+import App from "@/App";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "RR — Робот Рекрутер" },
-      { name: "description", content: "ИИ-агент, который автоматизирует найм: подбор, скрининг и общение с кандидатами." },
+      { name: "description", content: "Интеллектуальная RPA-платформа найма: подбор, скрининг, интервью и обучение кандидатов." },
       { property: "og:title", content: "RR — Робот Рекрутер" },
-      { property: "og:description", content: "Найм без боли. Рекрутинг на автопилоте." },
+      { property: "og:description", content: "Найм на автопилоте." },
     ],
   }),
-  component: HomePage,
+  component: App,
 });
