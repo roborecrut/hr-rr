@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type React from "react";
 import { RouterProvider, useRouter } from "./components/RouterContext";
 import LandingPage from "./pages/LandingPage";
 import MainCatalogPage from "./pages/MainCatalogPage";
