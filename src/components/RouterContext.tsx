@@ -15,14 +15,16 @@ const RouterContext = createContext<RouterContextType | undefined>(undefined);
 
 export function RouterProvider({ children }: { children: React.ReactNode }) {
   const [path, setPath] = useState<string>(() => {
-    // Read from window location or fallback to /main
+    if (typeof window === "undefined") return "/main";
     const initialPath = window.location.pathname;
     return initialPath === "/" ? "/main" : initialPath;
   });
 
   const [query, setQuery] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
     return parseQueryParams(window.location.search);
   });
+
 
   function parseQueryParams(searchStr: string): Record<string, string> {
     const params: Record<string, string> = {};
