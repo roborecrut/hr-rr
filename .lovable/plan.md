@@ -1,40 +1,47 @@
-## Цель
+## Что я нашёл в текущей сборке
 
-В репозитории есть две системы маршрутизации, которые конфликтуют:
-- `src/App.tsx` + `src/components/RouterContext.tsx` — собственный роутер, переключающий страницы по `window.location.pathname` (LandingPage, MainCatalogPage, EmployerPanel, CandidateFlow, AdminPanel, JobVacancyLanding, CompanyLanding).
-- `src/routes/` (TanStack Start) — реально активный роутер фреймворка. Сейчас он отдаёт только заглушечные `HomePage`/`AboutPage`, которые я создал в прошлой итерации.
+- `src/routes/` удалён, маршрутизацию полностью ведёт `src/App.tsx` через `RouterContext` (`window.history` + switch по `path`).
+- `vite.config.ts` уже plain React + Tailwind v4, `server.ts` поднимает Vite в middleware-режиме с `appType: "spa"` — SPA-фолбэк работает и в dev, и в prod.
+- Dev-сервер запускается на 8080, отвечает 200.
+- В `package.json` остались мёртвые зависимости от старой TanStack Start сборки и пара других неиспользуемых пакетов.
+- `index.html` всё ещё содержит дефолтный заголовок «My Google AI Studio App».
+- Никакой реальной 404-страницы нет: `App.tsx` на неизвестном URL молча отдаёт `LandingPage`.
 
-Поэтому большинство страниц пользователя сейчас недостижимы. Нужно отдать управление страницами в `App.tsx` (там уже вся логика URL → компонент), а TanStack-маршруты сделать тонкой «обёрткой», которая на любом URL рендерит `<App />`.
+## План правок
 
-## Шаги
+1. **Почистить `package.json`** — убрать неиспользуемые пакеты, чтобы `bun install` и `vite build` не тянули лишнее и не было конфликтов версий:
+   - `@tanstack/react-router`
+   - `@tanstack/react-start`
+   - `@tanstack/router-plugin`
+   - `@lovable.dev/vite-tanstack-config` (devDep)
+   - `nitro` (devDep)
+   - `vite-tsconfig-paths` (не используется, алиасы заданы в `vite.config.ts`)
+   
+   Дублей в зависимостях нет — каждый пакет указан один раз. React 19 / Vite 6 / Tailwind 4 оставляем как есть.
 
-1. **Удалить мои временные файлы**, чтобы они не мешали:
-   - `src/pages/HomePage.tsx`
-   - `src/pages/AboutPage.tsx`
-   - `src/components/Header.tsx`
-   - `src/components/Footer.tsx`
-   - `src/routes/about.tsx`
+2. **Поправить `index.html`** — задать корректные title/description/lang для RR:
+   - `<html lang="ru">`
+   - `<title>RR — Робот Рекрутер</title>`
+   - `<meta name="description" content="Робот Рекрутер — ИИ-платформа автоматизации найма, собеседований и адаптации.">`
+   - viewport уже есть.
 
-2. **`src/routes/index.tsx`** — переписать: вместо `HomePage` рендерить `<App />` из `src/App.tsx`. Метатеги оставить актуальные для лендинга RR.
+3. **Добавить страницу 404** — `src/pages/NotFoundPage.tsx`: минималистичная страница в стиле проекта (использует существующие классы `main-gradient`, `gold-gradient`) с кнопкой «На главную», которая через `useRouter().navigate("/main")` возвращает пользователя на лендинг.
 
-3. **`src/routes/$.tsx`** (новый, splat-роут) — на любой непредусмотренный URL (`/main`, `/vacancy`, `/admin`, `/job`, `/setup`, `/auth`, `/candidate/...`, `/employer...`, `/<slug-компании>`) тоже рендерить `<App />`. Внутри `App.tsx` уже есть `switch` по `path`, который выберет нужную страницу.
+4. **Подключить 404 в `src/App.tsx`** — заменить «всё неизвестное → LandingPage» на явный whitelist:
+   - Известные точные пути: `/`, `/main`, `/vacancy`, `/admin`, `/job`, `/auth`, `/setup`.
+   - Префиксы: `/candidate*`, `/employer*`.
+   - Слаги компаний: проверяем, что `slug` есть в списке компаний (через `/api/companies` или хотя бы в формате `[a-z0-9-]+` одним сегментом) — иначе `NotFoundPage`.
+   - Любой другой путь → `NotFoundPage`.
+   
+   Логика «slug компании» уже допускает любой первый сегмент → сейчас `/asdf` показывает пустой `CompanyLanding`. Сужу её до одного сегмента, состоящего из `[a-z0-9-]+`; всё остальное → 404. Сам `CompanyLanding` пусть как и раньше сам решает, что показать, если компания не найдена (если показывает пусто — это уже его задача, в этой итерации не трогаю).
 
-4. **SSR-страховка для `RouterContext`**: сейчас `RouterProvider` читает `window.location` в инициализаторе `useState`, что упадёт в SSR. Обернуть чтение в `typeof window !== "undefined"` с фолбэком на `/main`, чтобы preview/SSR-проход не крашился.
+5. **Проверка сборки** после правок:
+   - `bun install` (после чистки package.json).
+   - `bun run build` — убедиться, что `vite build` и `esbuild server.ts` отрабатывают без ошибок.
+   - Перезапустить dev и проверить, что `/`, `/main`, `/vacancy`, `/admin`, `/job`, `/employer`, `/candidate`, `/ooo-roborekrut-inzhiniring`, `/blablabla` отвечают 200 и рендерят правильную страницу (последний — 404).
 
-5. **Метатеги для splat-роута** — задать дефолтный `title`/`description` RR; на `/` оставить более конкретные.
+## Что НЕ делаю
 
-## Что НЕ делаю в этой итерации
-
-- Не переписываю страницы под нативные TanStack-routes по одной — это большой рефакторинг (~12k строк), а пользователь просил «чтобы всё открывалось».
-- Не реализую серверный эндпоинт `/api/employer-assist` для ИИ-ассистента (это отдельная задача — скажи, если нужно).
-- Не трогаю содержимое самих страниц (`LandingPage`, `EmployerPanel`, `CandidateFlow` и т.д.).
-
-## Технические детали
-
-Splat-роут в TanStack: файл `src/routes/$.tsx` с `createFileRoute("/$")({ component: () => <App /> })`. Корневой `__root.tsx` уже содержит `<Outlet />` и `QueryClientProvider`, ничего менять не надо. `routeTree.gen.ts` перегенерируется автоматически Vite-плагином.
-
-После этих правок:
-- `/` → `App` → `LandingPage` (дефолтная ветка switch)
-- `/main`, `/vacancy`, `/admin`, `/job`, `/setup`, `/auth` → соответствующие страницы
-- `/candidate*`, `/employer*` → `CandidateFlow` / `EmployerPanel`
-- любой `/slug` → `CompanyLanding`
+- Не переписываю содержимое существующих страниц (`LandingPage`, `EmployerPanel` и т.д.).
+- Не меняю серверные API.
+- Не ввожу React Router / TanStack Router — текущий кастомный роутер работает, менять его — большой рефакторинг ради того же эффекта.
