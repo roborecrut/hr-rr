@@ -13,7 +13,7 @@ import JobVacancyLanding from "./pages/JobVacancyLanding";
 import CompanyLanding from "./pages/CompanyLanding";
 import NotFoundPage from "./pages/NotFoundPage";
 
-const KNOWN_PATHS: Record<string, () => JSX.Element> = {
+const KNOWN_PATHS: Record<string, () => React.ReactElement> = {
   "/": LandingPage,
   "/main": LandingPage,
   "/vacancy": MainCatalogPage,
